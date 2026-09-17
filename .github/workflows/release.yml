@@ -111,6 +111,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # gh resolves the repository from the local git checkout.  Without this
+      # it has no repo context and every `gh release` call fails, so the
+      # checkout is required even though no code is built here.
+      - uses: actions/checkout@v4
+
       - name: Download every built binary
         uses: actions/download-artifact@v4
         with:
