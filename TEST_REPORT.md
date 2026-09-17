@@ -2,7 +2,7 @@
 
 **日期**：2026-09-17
 **Go 版本**：go1.27.1 linux/amd64（`go.mod` 声明 go 1.24.4）
-**测试对象**：`github.com/kevensen/go-passage-of-time-mcp-server`
+**测试对象**：`github.com/LeonDevLifeLog/go-passage-of-time-mcp-server`
 
 运行方式：
 

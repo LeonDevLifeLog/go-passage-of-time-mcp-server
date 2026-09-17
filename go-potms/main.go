@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/kevensen/go-passage-of-time-mcp-server/internal/handlers"
-	"github.com/kevensen/go-passage-of-time-mcp-server/internal/handlers/mcp"
+	"github.com/LeonDevLifeLog/go-passage-of-time-mcp-server/internal/handlers"
+	"github.com/LeonDevLifeLog/go-passage-of-time-mcp-server/internal/handlers/mcp"
 	"golang.org/x/sync/errgroup"
 
 	mcp_go_server "github.com/mark3labs/mcp-go/server"

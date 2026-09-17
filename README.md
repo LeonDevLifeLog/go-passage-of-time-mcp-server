@@ -7,7 +7,7 @@ Passage of Time MCP Server in Golang.  This is heavily inspired by the "[Passage
 ### From Source
 
 ```bash
-go install github.com/kevensen/go-passage-of-time-mcp-server/go-potms@latest
+go install github.com/LeonDevLifeLog/go-passage-of-time-mcp-server/go-potms@latest
 ```
 
 ### From pre-built package

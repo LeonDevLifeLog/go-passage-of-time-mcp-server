@@ -1,4 +1,4 @@
-module github.com/kevensen/go-passage-of-time-mcp-server
+module github.com/LeonDevLifeLog/go-passage-of-time-mcp-server
 
 go 1.24.4
 
