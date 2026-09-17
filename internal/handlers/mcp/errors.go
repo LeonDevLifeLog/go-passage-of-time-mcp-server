@@ -33,19 +33,3 @@ func NewInvalidTimeFormatError(input string) *InvalidTimeFormatError {
 		Input: input,
 	}
 }
-
-type TimeZoneLoadError struct {
-	TimeZone string
-	Err      error
-}
-
-func (e *TimeZoneLoadError) Error() string {
-	return "failed to load time zone \"" + e.TimeZone + "\": " + e.Err.Error()
-}
-
-func NewTimeZoneLoadError(timeZone string, err error) *TimeZoneLoadError {
-	return &TimeZoneLoadError{
-		TimeZone: timeZone,
-		Err:      err,
-	}
-}
