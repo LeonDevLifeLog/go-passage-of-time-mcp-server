@@ -2,6 +2,8 @@
 
 Passage of Time MCP Server in Golang.  This is heavily inspired by the "[Passage of Time](https://github.com/jlumbroso/passage-of-time-mcp/blob/main/README.md)" MCP server written in Python by @jlumbroso.  This MCP server enables an LLM to perform basic time operations and understand(?) the notion of the passage of time.
 
+This is a fork of [@kevensen's Go implementation](https://github.com/kevensen/go-passage-of-time-mcp-server), continued here.  See [docs/design.md](docs/design.md) for what changed and why — most notably that times are now zone-free readings.
+
 ## Installation
 
 ### From Source

@@ -1,22 +1,45 @@
-# Cross-compiles release binaries and attaches them to the published release.
+# Builds the release binaries and attaches them to a GitHub release.
 #
-# Publishing moved off `actions/upload-release-asset@v1`, which has been
-# deprecated since 2021, onto `gh release upload`.
+# Two ways to cut a release, both landing in the same place:
+#
+#   * push a tag                -- git push origin v0.6.0   (the usual path)
+#   * publish a release in the UI
+#
+# The tag is injected into the binary at link time, so a downloaded go-potms
+# reports the release it came from in its MCP serverInfo rather than the "dev"
+# default it would otherwise compile with.
 name: Release
 
 on:
+  push:
+    tags: ["v*"]
   release:
     types: [published]
 
 permissions:
-  contents: write # Required to upload release assets
+  contents: write # Required to create the release and upload assets
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      # Run once, ahead of the cross-compile, instead of once per matrix entry.
+      - name: Test
+        run: go test ./...
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ["1.24"]
         goos: [linux, windows, darwin]
         goarch: [amd64, arm64]
         exclude:
@@ -29,26 +52,95 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: "1.24"
           cache: true
 
-      - name: Test
-        run: go test ./...
+      - name: Resolve the version being released
+        id: version
+        run: |
+          # On a release event the tag is in the payload; on a tag push the ref
+          # name is the tag. GITHUB_REF_NAME holds it either way, but the
+          # payload field is the more explicit source when it is present.
+          version="${{ github.event.release.tag_name }}"
+          if [ -z "$version" ]; then
+            version="$GITHUB_REF_NAME"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          asset="go-potms-${{ matrix.goos }}-${{ matrix.goarch }}-${{ github.event.release.tag_name }}"
-          if [ "${{ matrix.goos }}" = "windows" ]; then
+          asset="go-potms-${GOOS}-${GOARCH}-${VERSION}"
+          if [ "$GOOS" = "windows" ]; then
             asset="${asset}.exe"
           fi
-          go build -trimpath -o "$asset" ./go-potms
+          go build -trimpath \
+            -ldflags "-X github.com/LeonDevLifeLog/go-passage-of-time-mcp-server/internal/handlers/mcp.Version=${VERSION}" \
+            -o "$asset" ./go-potms
           echo "ASSET=$asset" >> "$GITHUB_ENV"
 
-      - name: Upload to release
+      - name: Verify the version was injected
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # The entire point of the ldflags above. A binary still carrying
+          # "dev" would ship mislabelled, so fail here rather than publish it.
+          # Grepped rather than executed, so this works for cross-compiled
+          # targets that cannot run on the runner.
+          if grep -aqF "$VERSION" "$ASSET"; then
+            echo "$ASSET carries the version string $VERSION"
+          else
+            echo "::error::$ASSET does not contain $VERSION - the ldflags injection failed"
+            exit 1
+          fi
+
+      - name: Upload the binary as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET }}
+          path: ${{ env.ASSET }}
+          if-no-files-found: error
+
+  # A single job creates the release and attaches everything. Doing this from
+  # the matrix would race: six jobs would each try to create the same release.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download every built binary
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Resolve the version being released
+        id: version
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          if [ -z "$version" ]; then
+            version="$GITHUB_REF_NAME"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "$ASSET" --clobber
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          ls -lh dist
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            # The release already exists (UI path, or a re-run): add to it.
+            gh release upload "$VERSION" dist/* --clobber
+          else
+            # Tag push path - no release object exists yet, so create one.
+            # --verify-tag stops this from inventing a release for a tag that
+            # is not actually on the remote.
+            gh release create "$VERSION" dist/* \
+              --title "$VERSION" \
+              --generate-notes \
+              --verify-tag
+          fi
